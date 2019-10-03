@@ -4,8 +4,8 @@
 // Addresses for this node. CHANGE THESE FOR EACH NODE!
 
 #define NETWORKID     101   // Must be the same for all nodes (0 to 255)
-#define MYNODEID      8   // My node ID (0 to 255)
-#define TONODEID      0   // Destination node ID (0 to 254, 255 = broadcast)
+#define MYNODEID      8     // My node ID (0 to 255)
+#define TONODEID      0     // Destination node ID (0 to 254, 255 = broadcast)
 
 // RFM69 frequency, uncomment the frequency of your module:
 
@@ -30,6 +30,9 @@
 
 #define NUM_ROBOTS 20
 #define NUM_BALLS 20
+
+
+
 
 struct RobotPose
 {
@@ -58,51 +61,6 @@ int numRobots = 0;
 RobotPose robotPoses[NUM_ROBOTS];
 int numBalls = 0;
 BallPosition ballPositions[NUM_BALLS];
-
-void radioState();
-int getNumRobots();
-RobotPose getRobotPose (int robotID);
-int getBallPositions (BallPosition (&pos)[NUM_BALLS]);
-void PrintHex8(uint8_t *data, uint8_t length);
-void printRFMMessage(int len, uint8_t* buff);
-int16_t convert_bytes_to_int16(char* buf);
-void updateRobotPoseAndBallPositions (void);
-void printRobotPose (RobotPose pose);
-void printBallPositions(int num, BallPosition (&pos)[NUM_BALLS]);
-void ME401_Radio_initialize(void);
-
-void radioState()
-{
-  //Serial.print("Start robot position: ");
-  //Serial.println(millis());
-  // Read from the radio and update the robot and ball positions
-  updateRobotPoseAndBallPositions();
-
-  
-  Serial.print("NUM ROBOTS: ");
-  int numRobots = getNumRobots();
-  Serial.println(numRobots);
-  for(int i = 0 ; i < NUM_ROBOTS ; i++)
-  {
-    
-    RobotPose robot = getRobotPose(i);
-    if (robot.valid == true)
-    {
-      printRobotPose(robot);
-    }
-  }
-
-  // These are some other helper functions to get all the 
-  BallPosition ballPos[20];
-  int numBalls = getBallPositions(ballPos);
-  Serial.print("NUM BALLS: ");
-  Serial.println(numBalls);
-  printBallPositions(numBalls, ballPositions);
-
-  //Serial.print("End robot position: ");
-  //Serial.println(millis());
-}
-
 
 int getNumRobots()
 {
