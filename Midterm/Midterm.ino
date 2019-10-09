@@ -1,8 +1,8 @@
 #include "ME401_Radio.h"
 #include "ME401_PID_IR.h"
-//#include "ME401_Drive.h"
+#include "ME401_Drive.h"
 
-#define MY_ROBOT_ID 8
+
 
 void setup() {
 
@@ -70,7 +70,7 @@ void loop() {
 
   //Find closest ball, not on our side
 
-  movingState(500,500); //Move to that ball
+  movingState(); //Move to that ball
 
   delay(20);
 }
