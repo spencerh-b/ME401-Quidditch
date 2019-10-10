@@ -1,6 +1,6 @@
-#include <Servo.h>
+#include <SoftPWMServo.h>
 
-Servo rightwheel, leftwheel;
+SoftServo rightwheel, leftwheel;
 
 #define MY_ROBOT_ID 8
 #define RIGHTWHEELPIN 32
@@ -10,15 +10,35 @@ const int BASE_SPEED = 100;
 int leftBaseSpeed = BASE_SPEED;
 int rightBaseSpeed = -BASE_SPEED;
 
-float distanceFromRobot(int x, int y);
+const int maxAngleForward = 200;
+
+float distanceFromRobot(int ballIndex);
 int findNearestBall();
 void moveForward(int ballNumber);
 void rotateToBall(int ballNumber);
 int toBallOrientation(int ballNumber);
 int orientedTo(int ballNumber);
 
+//Input of -100 to 100 for easiest backward v Forward
+void leftWheelWrite(int leftSpeed)
+{
+  if(leftSpeed >= -100 && leftSpeed <= 100)
+  {
+    leftwheel.write(map(leftSpeed,-100,100,1300,1700));
+  }
+}
+
+void rightWheelWrite(int rightSpeed)
+{
+  if(rightSpeed >= -100 && rightSpeed <= 100)
+  {
+    rightwheel.write(map(rightSpeed,-100,100,1300,1700));
+  }
+}
+
 void driveSetup()
 {
+  Serial.println("DRIVE SETUP");
   rightwheel.attach(RIGHTWHEELPIN);
   leftwheel.attach(LEFTWHEELPIN);
 }
@@ -46,41 +66,70 @@ void rotateToBall(int ballNum)
   less than 3200 and greater than -3200 rotate right */
   
   int phi = toBallOrientation(ballNum);
-  
-  if(robotPoses[MY_ROBOT_ID].theta < phi)
+
+  int rotateSpeed = map(phi,-PI*1000,PI*1000,-20,20);
+
+  if(distanceFromRobot(ballNum) < 400)
   {
-    leftwheel.write(-leftBaseSpeed);
-    rightwheel.write(rightBaseSpeed);
-    Serial.println(" Turning Left");
+    rotateSpeed += rotateSpeed < 0 ? -10: 10;
   }
   else
   {
-    leftwheel.write(leftBaseSpeed);
-    rightwheel.write(-rightBaseSpeed);
-    Serial.println(" Turning Right");
+    rotateSpeed *= 3;
+  }
+ 
+  leftWheelWrite(-rotateSpeed);
+  rightWheelWrite(-rotateSpeed);
+  if(rotateSpeed < 0)
+  {
+    Serial.print(" Turning Right: ");
+    Serial.println(rotateSpeed);
+  }
+  else
+  {
+    Serial.print(" Turning Left: ");
+    Serial.println(rotateSpeed);
   }
 }
 
 void moveForward(int ballNumber)
 {
+  int phi = toBallOrientation(ballNum);
+
+  float speedAdjust = map(phi,-maxAngleForward,maxAngleForward,-10,10);
+
+  if(speedAdjust < 0)
+  {
+    leftBaseSpeed += speedAdjust;
+  }
+  else
+  {
+    rightBaseSpeed -= speedAdjust;
+  }
+
+  
   //Need to finish implmentation
-  leftwheel.write(leftBaseSpeed);
-  rightwheel.write(rightBaseSpeed);
+  leftWheelWrite(leftBaseSpeed);
+  rightWheelWrite(rightBaseSpeed);
 }
 
 int toBallOrientation(int ballNumber)
 {
-  return 1000 * atan((float)(ballPositions[ballNumber].x-robotPoses[MY_ROBOT_ID].x) / (float)(ballPositions[ballNumber].y-robotPoses[MY_ROBOT_ID].y));
+  float XVrbo = (float)(ballPositions[ballNumber].x-robotPoses[MY_ROBOT_ID].x);
+  float YVrbo = (float)(ballPositions[ballNumber].y-robotPoses[MY_ROBOT_ID].y);
+
+  float robotTheta = robotPoses[MY_ROBOT_ID].theta;
+  float Xrbo = cos(robotTheta/1000.0)*XVrbo + sin(robotTheta/1000.0)*YVrbo;
+  float Yrbo = -sin(robotTheta/1000.0)*XVrbo + cos(robotTheta/1000.0)*YVrbo;
+  return atan2( Yrbo, Xrbo) * 1000;
 }
 
 int orientedTo(int ballNumber)
 {
   int thetaRad = toBallOrientation(ballNumber);
-  Serial.print("Robot Orientation: ");
-  Serial.println(robotPoses[MY_ROBOT_ID].theta);
   Serial.print("Necessary Orientation: ");
   Serial.println(thetaRad);
-  return (thetaRad < robotPoses[MY_ROBOT_ID].theta + 150 && thetaRad > robotPoses[MY_ROBOT_ID].theta - 150)? 1 : 0;
+  return (thetaRad < maxAngleForward && thetaRad > -maxAngleForward)? 1 : 0;
 }
 
 //Returns index of the nearest ball
@@ -89,7 +138,7 @@ int findNearestBall()
   float minDist = -1.0;
   int minDistIndex = -1;
   for(int ballIndex = 0; ballIndex < numBalls; ballIndex++){
-    float tempDistance = distanceFromRobot(ballPositions[ballIndex].x,ballPositions[ballIndex].y);
+    float tempDistance = distanceFromRobot(ballIndex);
     if (minDistIndex == -1 || tempDistance < minDist)
     {
       minDist = tempDistance;
@@ -102,8 +151,8 @@ int findNearestBall()
 }
 
 // Returns distance to x and y coordinates
-float distanceFromRobot(int x, int y)
+float distanceFromRobot(int ballIndex)
 {
   if(robotPoses[MY_ROBOT_ID].valid)
-    return sqrt(pow(x-robotPoses[MY_ROBOT_ID].x,2)+pow(y-robotPoses[MY_ROBOT_ID].y,2));
+    return sqrt(pow(ballPositions[ballIndex].x-robotPoses[MY_ROBOT_ID].x,2)+pow(ballPositions[ballIndex].y-robotPoses[MY_ROBOT_ID].y,2));
 }
