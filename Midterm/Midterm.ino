@@ -3,7 +3,6 @@
 #include "ME401_Drive.h"
 
 
-
 void setup() {
 
   // Set up the serial port in case we want output or input
@@ -28,20 +27,11 @@ void loop() {
   Serial.print("millis:");
   Serial.println(millis());
 
-  // TODO: This is where you implement all of your code for your robot. 
-  // REMEMBER: You must implement a state machine and have a good diagram of that state machine.
-  //           I HIGHLY recommend that you discuss this with the TAs and professor before starting to code.
-
-
-  // Here are a few examples of some of the core functionalities of the robot. If things ever stop working, I would
-  // recommend keeping a copy of this original template around so that you can load it to your robot and check whether
-  // you have a software issue or whether there is a hardware/wiring issue.
-  
-  // Simple example of sweeping the DC motor
+  /* Simple example of sweeping the DC motor
   setpoint += 5;
   if (setpoint > 60)
     setpoint = -60;
-
+  */
   // Simple example of looking for the corner beacon
   if (readIRFrequency() == CORNER)
   {
@@ -52,6 +42,19 @@ void loop() {
     Serial.print("Can't see the corner:");
     Serial.println(frequency);
   }
+
+
+  /* 1. Find Corner all the time
+   * 
+   * 2. Look for yellow ball
+   *  2a. If yellow ball - Drive and Capture
+   *  2b. If green ball - Drive and Hit
+   *      If the ball is directly in front, capture, rotate and throw
+   *      
+   * - Drive -- if switches are triggered execute evasive Tactics.
+   */
+  
+  
 
   // Simple example of reading the robot and ball positions from the radio
   updateRobotPoseAndBallPositions();
@@ -71,7 +74,12 @@ void loop() {
 
   //Find closest ball, not on our side
 
-  movingState(); //Move to that ball
+  bool moveState = movingState(); //Move to that ball
+
+  if(moveState)
+  {
+    return;
+  }
 
   delay(20);
 }
