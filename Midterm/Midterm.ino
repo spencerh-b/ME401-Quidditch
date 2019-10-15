@@ -17,6 +17,8 @@ void setup() {
   // Initialize Drive Servos
   driveSetup();
 
+  clawSetup();
+
   // TODO: Do any other setups you need for limit switch inputs, etc.
   
 }

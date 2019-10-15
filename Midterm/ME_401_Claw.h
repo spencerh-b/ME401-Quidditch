@@ -7,6 +7,7 @@ Servo clawServo;
 void clawSetup()
 {
   clawServo.attach(30);
+  clawServo.write(1450);
 }
 
 bool clawState()
@@ -18,7 +19,7 @@ bool clawState()
   {
     Serial.print("IR1:");
     Serial.print(irSensor1Value);
-    clawServo.write(1600); // NEEDS TO COORILATE TO VALUE OF CLOSE ANGLE
+    clawServo.write(1500); // NEEDS TO COORILATE TO VALUE OF CLOSE ANGLE
   }
   
 }

@@ -23,7 +23,9 @@ int rightBaseSpeed = -BASE_SPEED;
 
 const int maxAngleForward = 200;
 
-RobotPose homePose;
+int init_x_pose = -1000;
+
+
 int greenOffset = 100;
 int yellowOffset = 10;
 int endTheta = -3140;
@@ -66,9 +68,7 @@ void driveSetup()
   rightwheel.attach(RIGHTWHEELPIN);
   leftwheel.attach(LEFTWHEELPIN);
 
-  homePose = robotPoses[MY_ROBOT_ID];
-
-  if(homePose.x < (X_MIN-X_MAX)/2){
+  if(init_x_pose < (X_MIN-X_MAX)/2){
     greenOffset *= -1;
     endTheta = 0;
   }
@@ -76,6 +76,9 @@ void driveSetup()
 
 bool movingState()
 {
+  if(init_x_pose == -1000 && robotPoses[MY_ROBOT_ID].x != 0){
+    init_x_pose = robotPoses[MY_ROBOT_ID].x;
+  }
   int nearestBall = findNearestBall();
   if(nearestBall != -1)
   {
@@ -83,7 +86,7 @@ bool movingState()
     if(isYellowBall){
       offset = yellowOffset;
     }
-    if(atBall(nearestBall,offset)){
+    if(atBall(nearestBall,offset + 20)){
       bool claw = clawState(); //true corrilates to closed
       if(isYellowBall){
         // Close Claw on yellow ball
@@ -105,19 +108,10 @@ bool movingState()
 }
 void rotateToHit()
 {
-  int prevTheta = abs(robotPoses[MY_ROBOT_ID].theta), curTheta;
-  int totalRotation = 0;
-  while(totalRotation < 2*3141)
-  {
-    rightWheelWrite(BASE_SPEED);
-    leftWheelWrite(-BASE_SPEED);
+  rightWheelWrite(BASE_SPEED);
+  leftWheelWrite(BASE_SPEED);
 
-    curTheta = abs(robotPoses[MY_ROBOT_ID].theta);
-    
-    totalRotation += prevTheta < curTheta ? curTheta - prevTheta : prevTheta - curTheta;
-
-    prevTheta = curTheta;
-  }
+  delay(250);
 }
 
 void rotateToBall(int ballNum, int offset)
@@ -126,16 +120,11 @@ void rotateToBall(int ballNum, int offset)
   greater than 3200 or less than -3200 rotate left
   less than 3200 and greater than -3200 rotate right */
   
-  int phi = toBallOrientation(ballNum, offset);
+  double phi = toBallOrientation(ballNum, offset);
 
-  int rotateSpeed = map(phi,-PI*1000,PI*1000,-20,20);
+  int rotateSpeed = map(phi,-PI*1000,PI*1000,-50,50);
 
-  if(distanceFromRobot(ballNum) < 400){
-    rotateSpeed += rotateSpeed < 0 ? -10: 10;
-  }
-  else{
-    rotateSpeed *= 3;
-  }
+  rotateSpeed = abs(rotateSpeed) < 10 ? rotateSpeed / abs(rotateSpeed) * 10 : rotateSpeed;
  
   leftWheelWrite(-rotateSpeed);
   rightWheelWrite(-rotateSpeed);
@@ -144,23 +133,32 @@ void rotateToBall(int ballNum, int offset)
     Serial.println(rotateSpeed);
   }
   else{
-    Serial.print(" Turning Left: ");
+    Serial.print(" Turning Left:   ");
+    Serial.print(phi);  
+    Serial.print("   ");
     Serial.println(rotateSpeed);
   }
 }
 
 void moveForward(int ballNumber, int offset)
 {
+  leftBaseSpeed = BASE_SPEED;
+  rightBaseSpeed = -BASE_SPEED;
   int phi = toBallOrientation(ballNumber, offset);
 
   float speedAdjust = map(phi,-maxAngleForward,maxAngleForward,-10,10);
 
   if(speedAdjust < 0){
-    leftBaseSpeed += speedAdjust;
-  }
-  else{
     rightBaseSpeed -= speedAdjust;
   }
+  else{
+    leftBaseSpeed -= speedAdjust;
+  }
+
+  Serial.print("Left: ");
+  Serial.print(leftBaseSpeed);
+  Serial.print("  Right: ");
+  Serial.println(rightBaseSpeed);
 
   leftWheelWrite(leftBaseSpeed);
   rightWheelWrite(rightBaseSpeed);
@@ -222,10 +220,14 @@ bool isYellow(int ballIndex)
 bool homeSide(int ballIndex)
 {
   int x_ballPose = ballPositions[ballIndex].x;
-  if((homePose.x < (X_MAX - X_MIN)/2) && (x_ballPose < (X_MAX - X_MIN)/3)){
+  Serial.print("Home Side: ");
+  Serial.print(init_x_pose);
+  Serial.print(" Ball Pose: ");
+  Serial.println(x_ballPose);
+  if((init_x_pose < (X_MAX - X_MIN)/2) && (x_ballPose < (X_MAX - X_MIN)/3)){
     return true;
   }
-  else if((homePose.x > (X_MAX - X_MIN)/2) && (x_ballPose > (X_MAX - X_MIN) / 3 * 2)){
+  else if((init_x_pose > (X_MAX - X_MIN)/2) && (x_ballPose > (X_MAX - X_MIN) / 3 * 2)){
     return true;
   }
   return false;
