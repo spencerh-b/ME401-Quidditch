@@ -1,5 +1,6 @@
 #include <SoftPWMServo.h>
 #include <PID_v1.h>
+#include "ME401_Drive.h"
 
 #define CORNER 1
 #define NO_CORNER_LOW      -1
@@ -43,15 +44,25 @@ PID myPID(&input, &output, &setpoint,kp,ki,kd, DIRECT);
 
 // Global variables for the IR beacon detector
 int windowTime = 100;   // ms
-int sampleTime= 1;     // ms
+float sampleTime = 0.01;     // ms
 int windowIters = windowTime/sampleTime;
 float frequency = 0;
 
+// Our own variables
+bool cornerFound = false;
+long PIDcounter=1;
+int pointChange = 1;
 // Forward declaration of functions to be used that are defined later than their first use
 uint32_t MyCallback(uint32_t currentTime);
+int readIRFrequency ();
+
+void disablePIDandIR(void){ 
+    detachCoreTimerService(MyCallback);
+}
 
 void setupPIDandIR(void)
 {
+  
   // Set up the quadrature inputs
   pinMode(EncoderAPin, INPUT);
   pinMode(EncoderBPin, INPUT);
@@ -73,7 +84,7 @@ void setupPIDandIR(void)
   //Setup the pid 
   myPID.SetMode(AUTOMATIC);
   myPID.SetSampleTime(pidSampleTime);
-  myPID.SetOutputLimits(-255,255);
+  myPID.SetOutputLimits(-40,40);
 
   // Initialize the sensor on pin 8 as an input
   pinMode(IRSensorInputPin,INPUT);
@@ -82,29 +93,85 @@ void setupPIDandIR(void)
   attachCoreTimerService(MyCallback);
 }
 
+int overShootCounter = 0;
+
+bool PID_IR_State(void)
+{
+  if (readIRFrequency() == CORNER)
+  {
+    Serial.println("I see the corner");
+    setpoint = setpoint;
+    cornerFound = true;
+    return true;
+  }
+  else
+  {
+    Serial.print("Can't see the corner:");
+    Serial.println(frequency);
+    setpoint += pointChange;
+
+    if (setpoint > 50 || setpoint < -50){
+      pointChange *= -1;
+      overShootCounter++;
+    }
+    if(overShootCounter == 2){
+      rotateToFind();
+      overShootCounter = 0;
+    }
+    return false;
+  }
+}
+
 
 
 uint32_t MyCallback(uint32_t currentTime) {
-  char newLeftA = digitalRead(EncoderAPin);
-  char newLeftB = digitalRead(EncoderBPin);
+  static int lastVal = digitalRead(IRSensorInputPin);
+   static int iters = 0;
+   static int IRcounter = 0;
+   int newVal = digitalRead(IRSensorInputPin);
 
-  position += (newLeftA ^ lastLeftB) - (lastLeftA ^ newLeftB); 
-
-  if((lastLeftA ^ newLeftA) & (lastLeftB ^ newLeftB))
+  if (iters < windowIters)
   {
-    errorLeft = true;
+    
+    if (newVal==HIGH && lastVal == LOW)
+    {
+      IRcounter++;
+    }
+    lastVal = newVal;
+  }
+  else
+  {
+    frequency = 1000.0*(float)IRcounter/(float)windowTime;
+    IRcounter = 0;   
+    lastVal = newVal;
+    iters = 0;
   }
 
+  iters++;
+  //return (currentTime + CORE_TICK_RATE*sampleTime);
+
+  //IR Sensor ^
+  char newLeftA = digitalRead(2);
+  char newLeftB = digitalRead(20);
+  
+  position += (newLeftA ^ lastLeftB) - (lastLeftA ^ newLeftB);
+  
+  if((lastLeftA ^ newLeftA) & (lastLeftB ^ newLeftB))
+    {
+        errorLeft = true;
+    }
+  
   lastLeftA = newLeftA;
   lastLeftB = newLeftB;
-
-  if (counterPID % 100*pidSampleTime == 0)
-  {
-    angle = position*0.133333;
-    input = angle;      
-
+    
+  
+  if (PIDcounter % 100*pidSampleTime == 0)
+  {   
+    input = position*.1285;      
+        
     myPID.Compute();
-    if (output < 0)
+    
+    if (output > 0)
     {
       digitalWrite(MotorDirectionPin,1);
     }
@@ -112,42 +179,10 @@ uint32_t MyCallback(uint32_t currentTime) {
     {
       digitalWrite(MotorDirectionPin,0);
     }  
-    SoftPWMServoPWMWrite(MotorPWMPin,abs(output));
-    counterPID = 0;
+    SoftPWMServoPWMWrite(3,abs(output));
+    PIDcounter = 0;
   }
-  counterPID++;
-  
-  if (counterIR % 100*irSampleTime == 0)
-  {
-    static int lastVal = digitalRead(IRSensorInputPin);
-    static int iters = 0;
-    static int ircounter = 0;
-
-    if (iters < windowIters)
-    {
-      int newVal = digitalRead(IRSensorInputPin);
-      if (newVal==HIGH && lastVal == LOW)
-      {
-        ircounter++;
-      }
-      lastVal = newVal;
-    }
-    else
-    {
-      frequency = 1000.0*(float)ircounter/(float)windowTime;
-  
-      ircounter = 0;
-      int newVal = digitalRead(IRSensorInputPin);    
-      lastVal = newVal;
-      iters = 0;
-    }
-  
-    iters++;
-    
-    counterIR=0;
-  }
-  counterIR++;
-
+  PIDcounter++;
   return (currentTime + CORE_TICK_RATE/100);
 }
 
@@ -159,7 +194,7 @@ int readIRFrequency ()
   {
     return NO_CORNER_LOW;
   }
-  else if (frequency >= 50 && frequency < 150)
+  else if (frequency >= 50 && frequency < 450)
   {
     return CORNER;
   }

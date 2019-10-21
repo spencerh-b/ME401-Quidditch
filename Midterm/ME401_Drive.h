@@ -27,7 +27,6 @@ int init_x_pose = -1000;
 
 
 int greenOffset = 100;
-int yellowOffset = 10;
 int endTheta = -3140;
 
 bool isYellowBall = false;
@@ -71,24 +70,26 @@ void driveSetup()
   if(init_x_pose < (X_MIN-X_MAX)/2){
     greenOffset *= -1;
     endTheta = 0;
+    init_x_pose = robotPoses[MY_ROBOT_ID].x;
   }
 }
 
 bool movingState()
 {
-  if(init_x_pose == -1000 && robotPoses[MY_ROBOT_ID].x != 0){
-    init_x_pose = robotPoses[MY_ROBOT_ID].x;
-  }
+  //Find the nearest ball
   int nearestBall = findNearestBall();
+
+  // If there exists a "nearest ball"
   if(nearestBall != -1)
   {
-    int offset = greenOffset;
+    int offset = robotPoses[MY_ROBOT_ID].y > (Y_MAX-Y_MIN)/2 ? greenOffset : greenOffset * -1;
     if(isYellowBall){
-      offset = yellowOffset;
+      offset = 0;
     }
     if(atBall(nearestBall,offset + 20)){
       bool claw = clawState(); //true corrilates to closed
       if(isYellowBall){
+        // Open Claw
         // Close Claw on yellow ball
       }
       else{
@@ -108,20 +109,32 @@ bool movingState()
 }
 void rotateToHit()
 {
-  rightWheelWrite(BASE_SPEED);
-  leftWheelWrite(BASE_SPEED);
+  int rotationSpeed = robotPoses[MY_ROBOT_ID].y > Y_MAX/2 ? BASE_SPEED : -BASE_SPEED;
+  rightWheelWrite(rotationSpeed);
+  leftWheelWrite(rotationSpeed);
 
   delay(250);
 }
 
+void stopRotation()
+{
+  rightWheelWrite(0);
+  leftWheelWrite(0);
+}
+
+void rotateToFind(){
+  rightWheelWrite(BASE_SPEED);
+  leftWheelWrite(BASE_SPEED);
+  delay(100);
+  stopRotation();
+}
+
 void rotateToBall(int ballNum, int offset)
 {
-  /*ball - robot
-  greater than 3200 or less than -3200 rotate left
-  less than 3200 and greater than -3200 rotate right */
-  
+  //Find necessary rotation
   double phi = toBallOrientation(ballNum, offset);
-
+  
+  //Maninpulate rotation speed based upon size of angle
   int rotateSpeed = map(phi,-PI*1000,PI*1000,-50,50);
 
   rotateSpeed = abs(rotateSpeed) < 10 ? rotateSpeed / abs(rotateSpeed) * 10 : rotateSpeed;
@@ -134,8 +147,6 @@ void rotateToBall(int ballNum, int offset)
   }
   else{
     Serial.print(" Turning Left:   ");
-    Serial.print(phi);  
-    Serial.print("   ");
     Serial.println(rotateSpeed);
   }
 }
@@ -144,8 +155,11 @@ void moveForward(int ballNumber, int offset)
 {
   leftBaseSpeed = BASE_SPEED;
   rightBaseSpeed = -BASE_SPEED;
+
+  //Get the angle away from the ball
   int phi = toBallOrientation(ballNumber, offset);
 
+  // Manipulate speed to correct little angle offsets
   float speedAdjust = map(phi,-maxAngleForward,maxAngleForward,-10,10);
 
   if(speedAdjust < 0){
@@ -164,6 +178,7 @@ void moveForward(int ballNumber, int offset)
   rightWheelWrite(rightBaseSpeed);
 }
 
+//Find the necessary rotation from robot to ball
 int toBallOrientation(int ballNumber, int offset)
 {
   float XVrbo = (float)(ballPositions[ballNumber].x-robotPoses[MY_ROBOT_ID].x);
@@ -175,6 +190,7 @@ int toBallOrientation(int ballNumber, int offset)
   return atan2( Yrbo, Xrbo) * 1000;
 }
 
+//Is the robot orriented to the particular ball
 int orientedTo(int ballNumber, int offset)
 {
   int thetaRad = toBallOrientation(ballNumber, offset);
@@ -183,6 +199,7 @@ int orientedTo(int ballNumber, int offset)
   return (thetaRad < maxAngleForward && thetaRad > -maxAngleForward)? 1 : 0;
 }
 
+//Is the robot close enough to the ball
 bool atBall(int ballIndex, int offset)
 {
   return distanceFromRobot(ballIndex) <= offset ? true : false;
@@ -191,12 +208,16 @@ bool atBall(int ballIndex, int offset)
 //Returns index of the nearest ball
 int findNearestBall()
 {
+  // Onlt do this if the position of the robot is seen
   if(!robotPoses[MY_ROBOT_ID].valid)
   {
     return -1;
   }
+  
   float minDist = -1.0;
   int minDistIndex = -1;
+
+  //For every ball see how close the ball is to the robot
   for(int ballIndex = 0; ballIndex < numBalls; ballIndex++){
     float tempDistance = distanceFromRobot(ballIndex);
     if(isYellow(ballIndex)){
@@ -207,16 +228,19 @@ int findNearestBall()
       minDistIndex = ballIndex;
     }
   }
+  
   Serial.print("Nearest Ball: ");
   Serial.println(minDistIndex);
   return minDistIndex;
 }
 
+// Is the yellow ball on the court
 bool isYellow(int ballIndex)
 {
   return ballPositions[ballIndex].hue < 33 ? true : false;
 }
 
+// Is the ball on the same side in which you started
 bool homeSide(int ballIndex)
 {
   int x_ballPose = ballPositions[ballIndex].x;

@@ -1,7 +1,12 @@
 #include "ME401_Radio.h"
 #include "ME401_PID_IR.h"
-#include "ME401_Drive.h"
 
+typedef enum states{
+  FINDCORNER = 0,
+  GETBALLS = 1
+};
+
+states state = FINDCORNER;
 
 void setup() {
 
@@ -13,7 +18,7 @@ void setup() {
 
   // Initialize the PID and IR interrupts
   setupPIDandIR();
-
+  updateRobotPoseAndBallPositions();
   // Initialize Drive Servos
   driveSetup();
 
@@ -24,64 +29,48 @@ void setup() {
 }
 
 void loop() {
-
-
   Serial.print("millis:");
   Serial.println(millis());
 
-  /* Simple example of sweeping the DC motor
-  setpoint += 5;
-  if (setpoint > 60)
-    setpoint = -60;
-  */
   // Simple example of looking for the corner beacon
-  if (readIRFrequency() == CORNER)
+  if(cornerFound == true)
   {
-    Serial.println("I see the corner");
+    Serial.println("I've seen the corner");
   }
-  else
+  bool cornerState;
+  switch(state)
   {
-    Serial.print("Can't see the corner:");
-    Serial.println(frequency);
-  }
-
-
-  /* 1. Find Corner all the time
-   * 
-   * 2. Look for yellow ball
-   *  2a. If yellow ball - Drive and Capture
-   *  2b. If green ball - Drive and Hit
-   *      If the ball is directly in front, capture, rotate and throw
-   *      
-   * - Drive -- if switches are triggered execute evasive Tactics.
-   */
-  
-  
-
-  // Simple example of reading the robot and ball positions from the radio
-  updateRobotPoseAndBallPositions();
-  RobotPose robot = getRobotPose(MY_ROBOT_ID);
-  
-  if (robot.valid == true)
-  {
-    Serial.println("The camera can see my robot");
-    printRobotPose(robot);
-  }
-
-  BallPosition ballPos[20];
-  int numBalls = getBallPositions(ballPos);
-  Serial.print("NUM BALLS: ");
-  Serial.println(numBalls);
-  printBallPositions(numBalls, ballPositions);
-
-  //Find closest ball, not on our side
-
-  bool moveState = movingState(); //Move to that ball
-
-  if(moveState)
-  {
-    return;
-  }
+    case FINDCORNER:
+      cornerState = PID_IR_State();
+      if(cornerState)
+      {
+        state = GETBALLS;
+        disablePIDandIR();
+      }
+      break;
+    case GETBALLS:
+      // Simple example of reading the robot and ball positions from the radio
+      updateRobotPoseAndBallPositions();
+      RobotPose robot = getRobotPose(MY_ROBOT_ID);
+      
+      if (robot.valid == true)
+      {
+        Serial.println("The camera can see my robot");
+        printRobotPose(robot);
+      }
+    
+      BallPosition ballPos[20];
+      int numBalls = getBallPositions(ballPos);
+      printBallPositions(numBalls, ballPositions);
+    
+      bool moveState = movingState(); //Find closest ball, not on our side and move to that ball
+    
+      if(moveState) // Captured yellow ball
+      {
+        return;
+      }
+      break;
+  }  
 
   delay(20);
 }
