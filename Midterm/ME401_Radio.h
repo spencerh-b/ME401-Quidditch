@@ -198,6 +198,9 @@ void updateRobotPoseAndBallPositions (void)
         */
       }
     }
+    else{
+      Serial.println("Not Recieving");
+    }
     
   }
 

@@ -38,8 +38,8 @@ long counterIR=1;
 
 
 // Global variables for the PID controller
-double input=0, output=0, setpoint=0;
-PID myPID(&input, &output, &setpoint,kp,ki,kd, DIRECT);
+double input=0, PIDoutput=0, setpoint=0;
+PID myPID(&input, &PIDoutput, &setpoint,kp,ki,kd, DIRECT);
 
 
 // Global variables for the IR beacon detector
@@ -50,7 +50,7 @@ float frequency = 0;
 
 // Our own variables
 bool cornerFound = false;
-long PIDcounter=1;
+long PIDcounter = 1;
 int pointChange = 1;
 // Forward declaration of functions to be used that are defined later than their first use
 uint32_t MyCallback(uint32_t currentTime);
@@ -71,9 +71,9 @@ void setupPIDandIR(void)
   lastLeftA = digitalRead(EncoderAPin);
   lastLeftB = digitalRead(EncoderBPin);
 
-  // Set up the motor outputs
-  pinMode(MotorPWMPin, OUTPUT);
-  pinMode(MotorDirectionPin, OUTPUT);
+  // Set up the motor PIDoutputs
+  pinMode(MotorPWMPin, PIDoutput);
+  pinMode(MotorDirectionPin, PIDoutput);
 
   digitalWrite(MotorPWMPin,0);
   digitalWrite(MotorDirectionPin,0);
@@ -95,14 +95,13 @@ void setupPIDandIR(void)
 
 int overShootCounter = 0;
 
-bool PID_IR_State(void)
+int PID_IR_State(void)
 {
   if (readIRFrequency() == CORNER)
   {
     Serial.println("I see the corner");
-    setpoint = setpoint;
     cornerFound = true;
-    return true;
+    return setpoint;
   }
   else
   {
@@ -110,7 +109,7 @@ bool PID_IR_State(void)
     Serial.println(frequency);
     setpoint += pointChange;
 
-    if (setpoint > 50 || setpoint < -50){
+    if (setpoint > 30 || setpoint < -9){
       pointChange *= -1;
       overShootCounter++;
     }
@@ -118,7 +117,7 @@ bool PID_IR_State(void)
       rotateToFind();
       overShootCounter = 0;
     }
-    return false;
+    return -1;
   }
 }
 
@@ -126,9 +125,9 @@ bool PID_IR_State(void)
 
 uint32_t MyCallback(uint32_t currentTime) {
   static int lastVal = digitalRead(IRSensorInputPin);
-   static int iters = 0;
-   static int IRcounter = 0;
-   int newVal = digitalRead(IRSensorInputPin);
+  static int iters = 0;
+  static int IRcounter = 0;
+  int newVal = digitalRead(IRSensorInputPin);
 
   if (iters < windowIters)
   {
@@ -157,9 +156,9 @@ uint32_t MyCallback(uint32_t currentTime) {
   position += (newLeftA ^ lastLeftB) - (lastLeftA ^ newLeftB);
   
   if((lastLeftA ^ newLeftA) & (lastLeftB ^ newLeftB))
-    {
-        errorLeft = true;
-    }
+  {
+      errorLeft = true;
+  }
   
   lastLeftA = newLeftA;
   lastLeftB = newLeftB;
@@ -167,19 +166,20 @@ uint32_t MyCallback(uint32_t currentTime) {
   
   if (PIDcounter % 100*pidSampleTime == 0)
   {   
-    input = position*.1285;      
+    input = position*.13333333;      
         
     myPID.Compute();
     
-    if (output > 0)
+    if (PIDoutput > 0)
     {
-      digitalWrite(MotorDirectionPin,1);
+      digitalWrite(MotorDirectionPin,1); // Left
     }
     else
     {
-      digitalWrite(MotorDirectionPin,0);
+      digitalWrite(MotorDirectionPin,0); // Right
     }  
-    SoftPWMServoPWMWrite(3,abs(output));
+    SoftPWMServoPWMWrite(3,abs(PIDoutput));
+
     PIDcounter = 0;
   }
   PIDcounter++;

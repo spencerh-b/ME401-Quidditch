@@ -1,5 +1,5 @@
 #include <SoftPWMServo.h>
-#include "ME_401_Claw.h"
+#include "ME401_Claw.h"
 
 SoftServo rightwheel, leftwheel;
 
@@ -17,46 +17,45 @@ SoftServo rightwheel, leftwheel;
 #define Y_MAX 2450
 
 // Robot Variables
-const int BASE_SPEED = 100;
+const int BASE_SPEED = 90;
 int leftBaseSpeed = BASE_SPEED;
 int rightBaseSpeed = -BASE_SPEED;
 
 const int maxAngleForward = 200;
 
 int init_x_pose = -1000;
+int homeLine = init_x_pose; // a variable signifying the x position of our homeline
 
-
-int greenOffset = 100;
-int endTheta = -3140;
 
 bool isYellowBall = false;
 
 // Function Headers
 float distanceFromRobot(int ballIndex);
 int findNearestBall();
-void moveForward(int ballNumber, int offset);
-void rotateToHit();
-void rotateToBall(int ballNumber, int offset);
-int toBallOrientation(int ballNumber, int offset);
-int orientedTo(int ballNumber, int offset);
+void moveForward(int ballNumber);
+bool returnHome();
+void rotateToBall(int ballNumber);
+int toBallOrientation(int ballNumber);
+int orientedTo(int ballNumber);
 bool homeSide(int ballIndex);
 bool isYellow(int ballIndex);
-bool atBall(int ballIndex, int offset);
+bool atBall(int ballIndex);
+void stopRotation();
+bool isHome();
+void determineSide(int setpoint);
 
 
 //Input of -100 to 100 for easiest backward v Forward
 void leftWheelWrite(int leftSpeed)
 {
-  if(leftSpeed >= -100 && leftSpeed <= 100)
-  {
+  if(leftSpeed >= -BASE_SPEED && leftSpeed <= BASE_SPEED){
     leftwheel.write(map(leftSpeed,-100,100,1300,1700));
   }
 }
 
 void rightWheelWrite(int rightSpeed)
 {
-  if(rightSpeed >= -100 && rightSpeed <= 100)
-  {
+  if(rightSpeed >= -BASE_SPEED && rightSpeed <= BASE_SPEED){
     rightwheel.write(map(rightSpeed,-100,100,1300,1700));
   }
 }
@@ -68,52 +67,110 @@ void driveSetup()
   leftwheel.attach(LEFTWHEELPIN);
 
   if(init_x_pose < (X_MIN-X_MAX)/2){
-    greenOffset *= -1;
-    endTheta = 0;
     init_x_pose = robotPoses[MY_ROBOT_ID].x;
   }
 }
 
 bool movingState()
 {
+  if(!robotPoses[MY_ROBOT_ID].valid){
+    stopRotation();
+  }
   //Find the nearest ball
   int nearestBall = findNearestBall();
 
   // If there exists a "nearest ball"
-  if(nearestBall != -1)
-  {
-    int offset = robotPoses[MY_ROBOT_ID].y > (Y_MAX-Y_MIN)/2 ? greenOffset : greenOffset * -1;
-    if(isYellowBall){
-      offset = 0;
+  if(nearestBall != -1){
+    if(clawState()){
+      return true;
     }
-    if(atBall(nearestBall,offset + 20)){
-      bool claw = clawState(); //true corrilates to closed
-      if(isYellowBall){
-        // Open Claw
-        // Close Claw on yellow ball
-      }
-      else{
-        // Hit ball to our side by spinning in full circle CCW
-        rotateToHit();
-      }
-    }
-    else if(orientedTo(nearestBall,offset)){
+    else if(orientedTo(nearestBall)){
       Serial.println("Move Forward");
-      moveForward(nearestBall, greenOffset);
+      moveForward(nearestBall);
     }
     else{
       Serial.println("Rotate To Ball");
-      rotateToBall(nearestBall, greenOffset);
+      rotateToBall(nearestBall);
     }
   }
+  else
+  {
+    stopRotation();
+  }
+  return false;
 }
-void rotateToHit()
-{
-  int rotationSpeed = robotPoses[MY_ROBOT_ID].y > Y_MAX/2 ? BASE_SPEED : -BASE_SPEED;
-  rightWheelWrite(rotationSpeed);
-  leftWheelWrite(rotationSpeed);
 
-  delay(250);
+bool returnHome()
+{
+  int nearestBall = -2;
+  if(!isHome()){
+    if(orientedTo(nearestBall)){
+      Serial.println("Move Forward");
+      moveForward(nearestBall);
+    }
+    else{
+      Serial.println("Rotate To Ball");
+      rotateToBall(nearestBall);
+    }
+    return false;
+  }
+  else{
+    openClaw();
+    leftWheelWrite(-BASE_SPEED);
+    rightWheelWrite(BASE_SPEED);
+    delay(500);
+    return true;
+  }
+}
+
+bool isHome()
+{
+  if(homeLine > (X_MAX-X_MIN)/2){
+    return robotPoses[MY_ROBOT_ID].x >= homeLine ? true : false;
+  }
+  else{
+    return robotPoses[MY_ROBOT_ID].x <= homeLine ? true : false;
+  }
+}
+
+void escape()
+{
+  leftWheelWrite(-BASE_SPEED);
+  rightWheelWrite(BASE_SPEED);
+}
+
+void winning()
+{
+  leftWheelWrite(BASE_SPEED/2);
+  rightWheelWrite(-BASE_SPEED);
+  delay(1000);
+  leftWheelWrite(BASE_SPEED);
+  rightWheelWrite(-BASE_SPEED/2);
+  delay(1000);
+  stopRotation();
+}
+
+void determineSide(int team, int PIDangle)
+{
+  int robotTheta = robotPoses[MY_ROBOT_ID].theta;
+  int sensorTheta = PIDangle*.1333333*(PI/360.0)*1000;
+
+  if(abs(robotTheta - sensorTheta) < (PI/2*1000)){
+    if(team == 0){
+      homeLine = (X_MAX-X_MIN) / 6 * 5;
+    }
+    else{
+      homeLine = (X_MAX-X_MIN) / 6;
+    }
+  }
+  else{
+    if(team == 0){
+      homeLine = (X_MAX-X_MIN) / 6;
+    }
+    else{
+      homeLine = (X_MAX-X_MIN) / 6 * 5;
+    }
+  }
 }
 
 void stopRotation()
@@ -125,14 +182,14 @@ void stopRotation()
 void rotateToFind(){
   rightWheelWrite(BASE_SPEED);
   leftWheelWrite(BASE_SPEED);
-  delay(100);
+  delay(1000);
   stopRotation();
 }
 
-void rotateToBall(int ballNum, int offset)
+void rotateToBall(int ballNum)
 {
   //Find necessary rotation
-  double phi = toBallOrientation(ballNum, offset);
+  double phi = toBallOrientation(ballNum);
   
   //Maninpulate rotation speed based upon size of angle
   int rotateSpeed = map(phi,-PI*1000,PI*1000,-50,50);
@@ -151,16 +208,16 @@ void rotateToBall(int ballNum, int offset)
   }
 }
 
-void moveForward(int ballNumber, int offset)
+void moveForward(int ballNumber)
 {
   leftBaseSpeed = BASE_SPEED;
   rightBaseSpeed = -BASE_SPEED;
 
   //Get the angle away from the ball
-  int phi = toBallOrientation(ballNumber, offset);
+  int phi = toBallOrientation(ballNumber);
 
   // Manipulate speed to correct little angle offsets
-  float speedAdjust = map(phi,-maxAngleForward,maxAngleForward,-10,10);
+  float speedAdjust = map(phi,-maxAngleForward,maxAngleForward,-20,20);
 
   if(speedAdjust < 0){
     rightBaseSpeed -= speedAdjust;
@@ -179,10 +236,19 @@ void moveForward(int ballNumber, int offset)
 }
 
 //Find the necessary rotation from robot to ball
-int toBallOrientation(int ballNumber, int offset)
+int toBallOrientation(int ballNumber)
 {
-  float XVrbo = (float)(ballPositions[ballNumber].x-robotPoses[MY_ROBOT_ID].x);
-  float YVrbo = (float)(ballPositions[ballNumber].y + offset - robotPoses[MY_ROBOT_ID].y);
+  float XVrbo;
+  float YVrbo;
+  if(ballNumber == -2){
+    XVrbo = (float)homeLine - robotPoses[MY_ROBOT_ID].x;
+    YVrbo = 0.0;
+  }
+  else
+  {
+    XVrbo = (float)(ballPositions[ballNumber].x-robotPoses[MY_ROBOT_ID].x);
+    YVrbo = (float)(ballPositions[ballNumber].y - robotPoses[MY_ROBOT_ID].y);
+  }
 
   float robotTheta = robotPoses[MY_ROBOT_ID].theta;
   float Xrbo = cos(robotTheta/1000.0)*XVrbo + sin(robotTheta/1000.0)*YVrbo;
@@ -191,26 +257,19 @@ int toBallOrientation(int ballNumber, int offset)
 }
 
 //Is the robot orriented to the particular ball
-int orientedTo(int ballNumber, int offset)
+int orientedTo(int ballNumber)
 {
-  int thetaRad = toBallOrientation(ballNumber, offset);
+  int thetaRad = toBallOrientation(ballNumber);
   Serial.print("Necessary Orientation: ");
   Serial.println(thetaRad);
   return (thetaRad < maxAngleForward && thetaRad > -maxAngleForward)? 1 : 0;
-}
-
-//Is the robot close enough to the ball
-bool atBall(int ballIndex, int offset)
-{
-  return distanceFromRobot(ballIndex) <= offset ? true : false;
 }
 
 //Returns index of the nearest ball
 int findNearestBall()
 {
   // Onlt do this if the position of the robot is seen
-  if(!robotPoses[MY_ROBOT_ID].valid)
-  {
+  if(!robotPoses[MY_ROBOT_ID].valid){
     return -1;
   }
   
@@ -237,7 +296,8 @@ int findNearestBall()
 // Is the yellow ball on the court
 bool isYellow(int ballIndex)
 {
-  return ballPositions[ballIndex].hue < 33 ? true : false;
+  isYellowBall = ballPositions[ballIndex].hue < 33 ? true : false;
+  return isYellowBall;
 }
 
 // Is the ball on the same side in which you started
