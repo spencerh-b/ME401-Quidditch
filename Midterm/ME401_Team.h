@@ -3,8 +3,13 @@ int green_light_pin = 8;
 int blue_light_pin = 35;
 int buttonPin = 6;
 
+//Function Header
 void RGB_color(int red_light_value, int green_light_value, int blue_light_value);
 
+/*********************************************************************
+* Function: teamSetup                                                *
+* Initialize the led and button pins to signify team designation     *
+*********************************************************************/
 void teamSetup()
 {
   //pinMode(red_light_pin, OUTPUT);
@@ -15,6 +20,12 @@ void teamSetup()
 
 int currentTeam = 0;
 
+/*********************************************************************
+* Function: teamState                                                *
+* Returns boolean value signifying if the button has been push in    *
+* order to change teams. Team 1 is represented by green. Team 2 is   *
+* represented by blue.                                               *
+*********************************************************************/
 bool teamState()
 {
   int buttonState = digitalRead(buttonPin);
@@ -45,6 +56,10 @@ bool teamState()
   return false;
 }
 
+/*********************************************************************
+* Function: RGB_color                                                *
+* write to the RGB LED to change it's color                          *
+*********************************************************************/
 void RGB_color(int red_light_value, int green_light_value, int blue_light_value)
 {
   //analogWrite(red_light_pin, red_light_value);

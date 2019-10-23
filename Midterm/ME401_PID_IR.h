@@ -122,7 +122,12 @@ int PID_IR_State(void)
 }
 
 
-
+/*********************************************************************
+* Function: MyCallback                                               *
+* Multiple responsibilities when called by timer interupt:           *
+* 1) Determine IR Value output                                       *
+* 2) Sweep motor through PID controller if corner not found          *
+*********************************************************************/
 uint32_t MyCallback(uint32_t currentTime) {
   static int lastVal = digitalRead(IRSensorInputPin);
   static int iters = 0;
