@@ -197,11 +197,7 @@ void updateRobotPoseAndBallPositions (void)
         Serial.println("");
         */
       }
-    }
-    else{
-      Serial.println("Not Recieving");
-    }
-    
+    }    
   }
 
   for(int i = 0 ; i < NUM_ROBOTS ; i++)
@@ -260,7 +256,7 @@ void updateRobotPoseAndBallPositions (void)
   Serial.println(numBalls);
   printBallPositions(numBalls, ballPositions);
 */
-  
+  Serial.println("Updated Poses");
 }
 
 void printRobotPose (RobotPose pose)

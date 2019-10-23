@@ -25,7 +25,7 @@ const int maxAngleForward = 200;
 
 int init_x_pose = -1000;
 int homeLine = init_x_pose; // a variable signifying the x position of our homeline
-
+RobotPose myRobot;
 
 bool isYellowBall = false;
 
@@ -36,13 +36,14 @@ void moveForward(int ballNumber);
 bool returnHome();
 void rotateToBall(int ballNumber);
 int toBallOrientation(int ballNumber);
-int orientedTo(int ballNumber);
+bool orientedTo(int ballNumber);
 bool homeSide(int ballIndex);
 bool isYellow(int ballIndex);
 bool atBall(int ballIndex);
 void stopRotation();
 bool isHome();
 void determineSide(int setpoint);
+void escape();
 
 
 //Input of -100 to 100 for easiest backward v Forward
@@ -67,35 +68,30 @@ void driveSetup()
   leftwheel.attach(LEFTWHEELPIN);
 
   if(init_x_pose < (X_MIN-X_MAX)/2){
-    init_x_pose = robotPoses[MY_ROBOT_ID].x;
+    init_x_pose = myRobot.x;
   }
 }
 
 bool movingState()
 {
-  if(!robotPoses[MY_ROBOT_ID].valid){
+  myRobot = getRobotPose(MY_ROBOT_ID);
+  if(!myRobot.valid){
     stopRotation();
   }
   //Find the nearest ball
   int nearestBall = findNearestBall();
 
   // If there exists a "nearest ball"
-  if(nearestBall != -1){
-    if(clawState()){
-      return true;
-    }
-    else if(orientedTo(nearestBall)){
-      Serial.println("Move Forward");
-      moveForward(nearestBall);
-    }
-    else{
-      Serial.println("Rotate To Ball");
-      rotateToBall(nearestBall);
-    }
+  if(clawState()){
+    return true;
   }
-  else
-  {
-    stopRotation();
+  else if(orientedTo(nearestBall)){
+    Serial.println("Move Forward");
+    moveForward(nearestBall);
+  }
+  else{
+    Serial.println("Rotate To Ball");
+    rotateToBall(nearestBall);
   }
   return false;
 }
@@ -103,6 +99,7 @@ bool movingState()
 bool returnHome()
 {
   int nearestBall = -2;
+  myRobot = getRobotPose(MY_ROBOT_ID);
   if(!isHome()){
     if(orientedTo(nearestBall)){
       Serial.println("Move Forward");
@@ -116,20 +113,22 @@ bool returnHome()
   }
   else{
     openClaw();
-    leftWheelWrite(-BASE_SPEED);
-    rightWheelWrite(BASE_SPEED);
-    delay(500);
+    escape();
     return true;
   }
 }
 
 bool isHome()
 {
+  Serial.print("Home: ");
+  Serial.print(homeLine);
+  Serial.print("  Cur: ");
+  Serial.println(myRobot.x);
   if(homeLine > (X_MAX-X_MIN)/2){
-    return robotPoses[MY_ROBOT_ID].x >= homeLine ? true : false;
+    return myRobot.x >= homeLine ? true : false;
   }
   else{
-    return robotPoses[MY_ROBOT_ID].x <= homeLine ? true : false;
+    return myRobot.x <= homeLine ? true : false;
   }
 }
 
@@ -137,38 +136,28 @@ void escape()
 {
   leftWheelWrite(-BASE_SPEED);
   rightWheelWrite(BASE_SPEED);
-}
-
-void winning()
-{
-  leftWheelWrite(BASE_SPEED/2);
-  rightWheelWrite(-BASE_SPEED);
-  delay(1000);
-  leftWheelWrite(BASE_SPEED);
-  rightWheelWrite(-BASE_SPEED/2);
-  delay(1000);
-  stopRotation();
+  delay(500);
 }
 
 void determineSide(int team, int PIDangle)
 {
-  int robotTheta = robotPoses[MY_ROBOT_ID].theta;
+  int robotTheta = myRobot.theta;
   int sensorTheta = PIDangle*.1333333*(PI/360.0)*1000;
 
   if(abs(robotTheta - sensorTheta) < (PI/2*1000)){
     if(team == 0){
-      homeLine = (X_MAX-X_MIN) / 6 * 5;
+      homeLine = X_MIN + (X_MAX-X_MIN) / 6 * 5;
     }
     else{
-      homeLine = (X_MAX-X_MIN) / 6;
+      homeLine = X_MIN + (X_MAX-X_MIN) / 6;
     }
   }
   else{
     if(team == 0){
-      homeLine = (X_MAX-X_MIN) / 6;
+      homeLine = X_MIN + (X_MAX-X_MIN) / 6;
     }
     else{
-      homeLine = (X_MAX-X_MIN) / 6 * 5;
+      homeLine = X_MIN + (X_MAX-X_MIN) / 6 * 5;
     }
   }
 }
@@ -241,45 +230,47 @@ int toBallOrientation(int ballNumber)
   float XVrbo;
   float YVrbo;
   if(ballNumber == -2){
-    XVrbo = (float)homeLine - robotPoses[MY_ROBOT_ID].x;
+    XVrbo = (float)homeLine - myRobot.x;
     YVrbo = 0.0;
   }
   else
   {
-    XVrbo = (float)(ballPositions[ballNumber].x-robotPoses[MY_ROBOT_ID].x);
-    YVrbo = (float)(ballPositions[ballNumber].y - robotPoses[MY_ROBOT_ID].y);
+    XVrbo = (float)(ballPositions[ballNumber].x - myRobot.x);
+    YVrbo = (float)(ballPositions[ballNumber].y - myRobot.y);
   }
 
-  float robotTheta = robotPoses[MY_ROBOT_ID].theta;
+  float robotTheta = myRobot.theta;
   float Xrbo = cos(robotTheta/1000.0)*XVrbo + sin(robotTheta/1000.0)*YVrbo;
   float Yrbo = -sin(robotTheta/1000.0)*XVrbo + cos(robotTheta/1000.0)*YVrbo;
   return atan2( Yrbo, Xrbo) * 1000;
 }
 
 //Is the robot orriented to the particular ball
-int orientedTo(int ballNumber)
+bool orientedTo(int ballNumber)
 {
   int thetaRad = toBallOrientation(ballNumber);
   Serial.print("Necessary Orientation: ");
   Serial.println(thetaRad);
-  return (thetaRad < maxAngleForward && thetaRad > -maxAngleForward)? 1 : 0;
+  return (thetaRad < maxAngleForward && thetaRad > -maxAngleForward)? true : false;
 }
 
 //Returns index of the nearest ball
 int findNearestBall()
 {
-  // Onlt do this if the position of the robot is seen
-  if(!robotPoses[MY_ROBOT_ID].valid){
+  // Onlt do this if the position of the robot is not seen
+  if(!myRobot.valid){
     return -1;
   }
   
   float minDist = -1.0;
   int minDistIndex = -1;
-
+  Serial.print("Num Balls: ");
+  Serial.println(numBalls);
   //For every ball see how close the ball is to the robot
   for(int ballIndex = 0; ballIndex < numBalls; ballIndex++){
     float tempDistance = distanceFromRobot(ballIndex);
     if(isYellow(ballIndex)){
+      isYellowBall = true;
       return ballIndex;
     }
     if (!homeSide(ballIndex) && (minDistIndex == -1 || tempDistance < minDist)){
@@ -296,22 +287,21 @@ int findNearestBall()
 // Is the yellow ball on the court
 bool isYellow(int ballIndex)
 {
-  isYellowBall = ballPositions[ballIndex].hue < 33 ? true : false;
-  return isYellowBall;
+  return ballPositions[ballIndex].hue < 33 ? true : false;
 }
 
 // Is the ball on the same side in which you started
 bool homeSide(int ballIndex)
 {
   int x_ballPose = ballPositions[ballIndex].x;
-  Serial.print("Home Side: ");
-  Serial.print(init_x_pose);
+  Serial.print("Home Line: ");
+  Serial.print(homeLine);
   Serial.print(" Ball Pose: ");
   Serial.println(x_ballPose);
-  if((init_x_pose < (X_MAX - X_MIN)/2) && (x_ballPose < (X_MAX - X_MIN)/3)){
+  if((homeLine < (X_MAX - X_MIN)/2) && (x_ballPose < (X_MAX - X_MIN)/3)){
     return true;
   }
-  else if((init_x_pose > (X_MAX - X_MIN)/2) && (x_ballPose > (X_MAX - X_MIN) / 3 * 2)){
+  else if((homeLine > (X_MAX - X_MIN)/2) && (x_ballPose > (X_MAX - X_MIN) / 3 * 2)){
     return true;
   }
   return false;
@@ -320,6 +310,6 @@ bool homeSide(int ballIndex)
 // Returns distance to x and y coordinates
 float distanceFromRobot(int ballIndex)
 {
-  if(robotPoses[MY_ROBOT_ID].valid)
-    return sqrt(pow(ballPositions[ballIndex].x-robotPoses[MY_ROBOT_ID].x,2)+pow(ballPositions[ballIndex].y - robotPoses[MY_ROBOT_ID].y,2));
+  if(myRobot.valid)
+    return sqrt(pow(ballPositions[ballIndex].x-myRobot.x,2)+pow(ballPositions[ballIndex].y - myRobot.y,2));
 }

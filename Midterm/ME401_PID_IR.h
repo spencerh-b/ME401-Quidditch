@@ -72,8 +72,8 @@ void setupPIDandIR(void)
   lastLeftB = digitalRead(EncoderBPin);
 
   // Set up the motor PIDoutputs
-  pinMode(MotorPWMPin, PIDoutput);
-  pinMode(MotorDirectionPin, PIDoutput);
+  pinMode(MotorPWMPin, OUTPUT);
+  pinMode(MotorDirectionPin, OUTPUT);
 
   digitalWrite(MotorPWMPin,0);
   digitalWrite(MotorDirectionPin,0);
@@ -109,7 +109,7 @@ int PID_IR_State(void)
     Serial.println(frequency);
     setpoint += pointChange;
 
-    if (setpoint > 30 || setpoint < -9){
+    if (setpoint > 30 || setpoint < -20){
       pointChange *= -1;
       overShootCounter++;
     }

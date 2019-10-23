@@ -1,7 +1,7 @@
 //int red_light_pin= 6;
 int green_light_pin = 8;
 int blue_light_pin = 35;
-int buttonPin = 39;
+int buttonPin = 6;
 
 void RGB_color(int red_light_value, int green_light_value, int blue_light_value);
 
@@ -31,7 +31,7 @@ bool teamState()
   //Red For Team 1
   if (currentTeam == 0)
   {
-    RGB_color(0, 255, 0); // Red
+    RGB_color(0, 255, 0); // Green
   }
     //Blue for Team 2
   if (currentTeam == 1)

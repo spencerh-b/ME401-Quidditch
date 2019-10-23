@@ -24,9 +24,6 @@ void setup() {
   setupPIDandIR();
   updateRobotPoseAndBallPositions();
   // Initialize Drive Servos
-  driveSetup();
-
-  clawSetup();
 
   switchSetup();
 
@@ -35,11 +32,19 @@ void setup() {
   
 }
 
+
+
 void loop() {
   Serial.print("millis:");
   Serial.println(millis());
   
+  updateRobotPoseAndBallPositions();
+  RobotPose robot = getRobotPose(MY_ROBOT_ID);
   
+  printRobotPose(robot);     
+  BallPosition ballPos[20];
+  numBalls = getBallPositions(ballPos);
+  printBallPositions(numBalls, ballPositions);
 
   // Simple example of looking for the corner beacon
   if(cornerFound == true){
@@ -64,28 +69,22 @@ void loop() {
       if(PIDangle != -1){
         robotState = GETBALLS;
         disablePIDandIR();
+        driveSetup();
+        clawSetup();
         determineSide(currentTeam,PIDangle);
       }
       break;
     case GETBALLS:
       {
-        // Simple example of reading the robot and ball positions from the radio
-        updateRobotPoseAndBallPositions();
-        RobotPose robot = getRobotPose(MY_ROBOT_ID);
-        
+        // Simple example of reading the robot and ball positions from the radio        
         if (robot.valid == true){
           Serial.println("The camera can see my robot");
-          printRobotPose(robot);
-        
-          BallPosition ballPos[20];
-          numBalls = getBallPositions(ballPos);
-          printBallPositions(numBalls, ballPositions);
-        
+               
           returnState = movingState(); //Find closest ball, not on our side and move to that ball
           if(returnState == true){
             if(isYellowBall){
+              stopRotation();
               return;
-              winning();
             }
             robotState = RETURNHOME;
           }
@@ -96,7 +95,11 @@ void loop() {
         }
       }
       break;
-    /*case RETURNHOME:
+    case RETURNHOME:
+      returnState = clawState(100);
+      if(!returnState){
+        robotState = GETBALLS;
+      }
       returnState = returnHome();
       if(returnState){
         robotState = GETBALLS;
@@ -106,7 +109,7 @@ void loop() {
     case SWITCHINTERUPT:
       escape();
       robotState = GETBALLS;
-      break;*/
+      break;
   }
   Serial.print("State: ");
   Serial.println(robotState);

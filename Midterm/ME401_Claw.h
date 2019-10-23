@@ -3,11 +3,10 @@
 int irSensor1Pin = A0;
 int clawPin = 30;
 
-const int openClawVal = 2250;
-const int closedClawVal = 1755;
-const int interClawVal = 1900;
+const int openClawVal = 2500;
+const int closedClawVal = 1900;
 
-const int closeVal = 325;
+const int closeVal = 350;
 
 Servo clawServo;
 
@@ -23,20 +22,16 @@ bool openClaw()
   clawServo.write(openClawVal);
 }
 
-bool clawState()
+bool clawState(int newCloseVal = closeVal)
 { 
   //Serial.println("Claw State");
   int irSensor1Value = analogRead(irSensor1Pin);
   Serial.print("IR1:");
   Serial.println(irSensor1Value);
 
-  if(irSensor1Value > closeVal){
+  if(irSensor1Value > newCloseVal){
     clawServo.write(closedClawVal);
     return true;
-  }
-  else if(irSensor1Value > closeVal/3){
-    int tempClaw = map(irSensor1Value,closeVal/3,closeVal,openClawVal,interClawVal);
-    clawServo.write(tempClaw);
   }
   else{
     clawServo.write(openClawVal);
