@@ -26,6 +26,7 @@ const int maxAngleForward = 200;
 int init_x_pose = -1000;
 int homeLine = init_x_pose; // a variable signifying the x position of our homeline
 RobotPose myRobot;
+bool wasYellowBall = false; // has the yellow ball been seen
 
 // Function Headers
 float distanceFromRobot(int ballIndex);
@@ -236,7 +237,7 @@ void stopMovement()
 void rotateToFind(){
   rightWheelWrite(BASE_SPEED);
   leftWheelWrite(BASE_SPEED);
-  delay(1000);
+  delay(500);
   stopMovement();
 }
 
@@ -443,8 +444,10 @@ int isYellowBall()
 {
   for(int ballIndex = 0; ballIndex < numBalls; ballIndex++){
     if(isYellow(ballIndex)){
+      wasYellowBall = true;
       return ballIndex;
     }
   }
+  wasYellowBall = false;
   return -1;
 }

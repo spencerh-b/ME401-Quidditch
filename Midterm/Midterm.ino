@@ -16,7 +16,7 @@ void setup() {
 
   // Set up the serial port in case we want output or input
   Serial.begin(115200);
-
+  Serial.print("BEGIN");
   // Initialize the RFM69HCW radio
   ME401_Radio_initialize();
 
@@ -29,6 +29,12 @@ void setup() {
 
   //Init team determination
   teamSetup();  
+
+  //Init Drice State
+  driveSetup();
+        
+  // Init front claw
+  clawSetup(); 
 }
 
 
@@ -77,8 +83,6 @@ void loop() {
       if(PIDangle != -1){
         robotState = GETBALLS; // Next state is GETBALLS
         disablePIDandIR(); //Reduce computational load by disconnecting interupt
-        driveSetup(); // Initialize drive state
-        clawSetup(); // Initialize front claw
         determineSide(currentTeam,PIDangle); // Determine side
       }
       break;
@@ -92,9 +96,9 @@ void loop() {
           // If return state is true that means that a ball has been captured
           if(returnState){
             // If the captured ball is yellow, GAMEOVER
-            if(isYellowBall() != -1){
+            if(wasYellowBall){
               stopMovement();
-              return;
+              exit(0);
             }
             // If the ball is not yellow bring it home
             robotState = RETURNHOME;
@@ -112,7 +116,7 @@ void loop() {
       returnState = clawState(100);
 
       // if the claw is not closed [false] go find a ball again or if the yellow ball now exists, drop the ball
-      if(!returnState  || isYellowBall()){
+      if(!returnState  || isYellowBall() != -1){
         openClaw();
         escape();
         robotState = GETBALLS;

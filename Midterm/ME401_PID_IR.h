@@ -51,13 +51,16 @@ float frequency = 0;
 // Our own variables
 bool cornerFound = false;
 long PIDcounter = 1;
-int pointChange = 1;
+int pointChange = 5;
 // Forward declaration of functions to be used that are defined later than their first use
 uint32_t MyCallback(uint32_t currentTime);
 int readIRFrequency ();
 
-void disablePIDandIR(void){ 
-    detachCoreTimerService(MyCallback);
+void disablePIDandIR(void){
+  setpoint = 0;
+  detachCoreTimerService(MyCallback);
+  pinMode(MotorPWMPin, INPUT);
+    
 }
 
 void setupPIDandIR(void)
@@ -106,10 +109,11 @@ int PID_IR_State(void)
   else
   {
     Serial.print("Can't see the corner:");
-    Serial.println(frequency);
+    Serial.println(setpoint);
     setpoint += pointChange;
+    delay(50);
 
-    if (setpoint > 30 || setpoint < -20){
+    if (setpoint > 15 || setpoint < -10){
       pointChange *= -1;
       overShootCounter++;
     }
@@ -195,11 +199,13 @@ uint32_t MyCallback(uint32_t currentTime) {
 // either too high or too low.
 int readIRFrequency ()
 {
+  Serial.print("Frequency: ");
+  Serial.println(frequency);
   if (frequency < 50)
   {
     return NO_CORNER_LOW;
   }
-  else if (frequency >= 50 && frequency < 450)
+  else if (frequency >= 200 && frequency < 450)
   {
     return CORNER;
   }

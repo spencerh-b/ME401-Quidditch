@@ -6,7 +6,7 @@ int clawPin = 30;
 const int openClawVal = 2500;
 const int closedClawVal = 1900;
 
-const int closeVal = 350;
+const int closeVal = 325;
 
 Servo clawServo;
 
